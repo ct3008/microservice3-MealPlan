@@ -1,2 +1,3 @@
-# microservice3-MealPlan
-COMS4153 Cloud Cmoputing Microservice 3 - Meal Planner
+# W4153-P1-Application
+
+Simple microservice application for the first project in W4153 -- Cloud Computing.
