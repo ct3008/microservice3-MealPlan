@@ -72,7 +72,8 @@ class MealplanResource(BaseResource):
         mealplan_data = mealplan.dict(exclude_unset=True)
         # Remove links
         mealplan_data.pop('links', None)
-        mealplan_data['meal_id'] = self.data_service.get_total_count(self.database, self.meal_plans) + 1
+        print(self.data_service.get_total_count(self.database, self.meal_plans))
+        mealplan_data['meal_id'] = self.data_service.get_total_count(self.database, self.meal_plans) + 2
         # Call insert_data with the meal plan data
         result = self.data_service.insert_data(self.database, self.meal_plans, mealplan_data)
         return Mealplan(**result)
