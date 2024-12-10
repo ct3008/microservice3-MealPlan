@@ -2,10 +2,42 @@
 from typing import Any, List
 from framework.resources.base_resource import BaseResource
 from datetime import datetime
+from datetime import date
+from typing import List, Dict, Any
+from pydantic import BaseModel
 
 from app.models.mealplan_model import Mealplan, DailyMealplan, WeeklyMealplan
 from app.services.service_factory import ServiceFactory
 
+
+def transform_to_daily_mealplans(input_data: Dict) -> List[Dict[str, Any]]:
+    weekly_meal_plans = input_data["weekly_meal_plan"]
+    meals = input_data["meals"]
+    
+    daily_mealplans = []
+    day_plan_id = 1  # Starting day_plan_id
+    
+    for week_plan in weekly_meal_plans:
+        week_plan_id = week_plan["week_plan_id"]
+        for meal in meals:
+            # Create a daily meal plan object
+            daily_mealplan = {
+                "day_plan_id": day_plan_id,
+                "week_plan_id": week_plan_id,
+                "date": meal["date"].isoformat(),
+                "meal_id": day_plan_id,  # Assuming meal_id is same as day_plan_id for this case
+                "links": {
+                    "self": f"/daily-mealplans/{day_plan_id}",
+                    "week": f"/weekly-mealplans/{week_plan_id}",
+                    "mealplan": f"/mealplans/{day_plan_id}",
+                    "edit": f"/daily-mealplans/{day_plan_id}/edit",
+                    "delete": f"/daily-mealplans/{day_plan_id}/delete"
+                }
+            }
+            daily_mealplans.append(daily_mealplan)
+            day_plan_id += 1  # Increment the day_plan_id for each new meal
+
+    return daily_mealplans
 
 class MealplanResource(BaseResource):
 
@@ -118,18 +150,37 @@ class MealplanResource(BaseResource):
                 "meal_id": result["meal_id"]
             }
         return [DailyMealplan(**item) for item in results]
-    
-    # Retrieve meal plans from a specific date
     def get_daily_meal_plans_by_date(self, date: str) -> List[DailyMealplan]:
-        results = self.data_service.get_daily_meal_plans_by_week(date)
-        for idx, result in enumerate(results):
-            results[idx] = {
-                "day_plan_id": result["day_plan_id"],
-                "week_plan_id": result["week_plan_id"],
-                "date": result["date"].strftime("%Y-%m-%d"),
-                "meal_id": result["meal_id"]
-            }
-        return [DailyMealplan(**item) for item in results]
+        results = self.data_service.get_daily_meal_plans_by_date(date)
+        print("results: ", results)
+
+        return results
+    # Retrieve meal plans from a specific date
+    # def get_daily_meal_plans_by_date(self, date: str) -> List[DailyMealplan]:
+    #     results = self.data_service.get_daily_meal_plans_by_date(date)
+    #     print("RESULTS BISH: ", results)
+        
+    #     # Prepare results with the correct format
+    #     daily_meals = []
+    #     for idx, (weekly, meal) in enumerate(zip(results['weekly_meal_plan'], results['meals'])):
+    #         # Construct the result dictionary
+    #         result = {
+    #             "end_date": weekly["end_date"].strftime("%Y-%m-%d"),
+    #             "start_date": weekly["start_date"].strftime("%Y-%m-%d"),
+    #             "day_plan_id": idx,  # You can generate a unique day_plan_id if needed
+    #             "week_plan_id": weekly["week_plan_id"],
+    #             "date": meal["date"].strftime("%Y-%m-%d"),  # Ensure date is a string
+    #             "meal_id": meal["meal_id"],
+    #             'breakfast_recipe': meal["breakfast_recipe"],
+    #             'lunch_recipe': meal["lunch_recipe"],
+    #             'dinner_recipe': meal["dinner_recipe"]
+    #             # "start_date" and "end_date" are not part of the DailyMealplan model, so we don't include them
+    #         }
+    #         print("Processed result: ", result)  # Print to debug
+    #         daily_meals.append(result)  # Unpack the result dictionary
+
+    #     return daily_meals
+
 
     # Update a meal plan based on its meal_id
     def update_meal_plan(self, meal_id: Any, data: dict) -> Mealplan:
@@ -209,7 +260,7 @@ class MealplanResource(BaseResource):
         )
         for idx, result in enumerate(results):
             results[idx] = {
-                "day_plan_id": result["day_plan_id"],
+                "day_plan_id": 0,
                 "week_plan_id": result["week_plan_id"],
                 "date": result["date"].strftime("%Y-%m-%d"),
                 "meal_id": result["meal_id"]

@@ -175,14 +175,14 @@ async def get_daily_mealplans_by_week(week_plan_id: int) -> List[DailyMealplan]:
 
     return daily_mealplans
 
-@router.get("/weekly-mealplans/", tags=["weekly-mealplans"], response_model=List[WeeklyMealplan])
-async def get_daily_meal_plans_by_date(date: str) -> List[DailyMealplan]:
+@router.get("/weekly-mealplans/", tags=["weekly-mealplans"])
+async def get_daily_meal_plans_by_date(date: str):
     """
     Retrieve all daily meal plans within a weekly plan by the weekly plan ID.
     """
     res = ServiceFactory.get_service("MealplanResource")
     daily_mealplans = res.get_daily_meal_plans_by_date(date)
-    print("DAILY: ", daily_mealplans)
+    # print("DAILY: ", daily_mealplans)
 
     if not daily_mealplans:
         raise HTTPException(status_code=404, detail="No daily meal plans found for this weekly plan")
