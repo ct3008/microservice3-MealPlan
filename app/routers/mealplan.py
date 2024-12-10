@@ -175,7 +175,7 @@ async def get_daily_mealplans_by_week(week_plan_id: int) -> List[DailyMealplan]:
 
     return daily_mealplans
 
-@router.get("/weekly-mealplans/", tags=["weekly-mealplans"])
+@router.get("/weekly-mealplans", tags=["weekly-mealplans"])
 async def get_daily_meal_plans_by_date(date: str):
     """
     Retrieve all daily meal plans within a weekly plan by the weekly plan ID.
@@ -186,7 +186,7 @@ async def get_daily_meal_plans_by_date(date: str):
 
     if not daily_mealplans:
         raise HTTPException(status_code=404, detail="No daily meal plans found for this weekly plan")
-
+    print(daily_mealplans)
     return daily_mealplans
 
 @router.get("/mealplans", tags=["mealplans"], response_model=PaginatedResponse)
@@ -215,7 +215,7 @@ async def get_all_mealplans(
 
     return PaginatedResponse(items=mealplans, links=links)
 
-@router.get("/weekly-mealplans", tags=["weekly-mealplans"], response_model=PaginatedResponse)
+@router.get("/weekly-mealplans/all", tags=["weekly-mealplans"], response_model=PaginatedResponse)
 async def get_all_weekly_mealplans(
     request: Request,
     skip: int = Query(0, ge=0, description="Number of records to skip"),

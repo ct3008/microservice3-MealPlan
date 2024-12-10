@@ -329,27 +329,86 @@ class MySQLRDBDataService(DataDataService):
                 print("Database connection closed.")
 
 
+    # def get_daily_meal_plans_by_date(self, date: str):
+    #     """
+    #     Fetches daily meal plans based on the weekly plan ID.
+    #     """
+    #
+    #     cursor = self.data_service.connection.cursor()
+    #     query1 = """
+    #     SELECT wmp.*
+    #     FROM weekly_meal_plans wmp
+    #     JOIN daily_meal_plans dmp ON wmp.week_plan_id = dmp.week_plan_id
+    #     WHERE dmp.date = %s;
+    #     """
+    #     cursor.execute(query1, (date,))
+    #     weekly_meal_plans = cursor.fetchall()
+    #
+    #     # Get column names for the weekly meal plans
+    #     weekly_column_names = [column[0] for column in cursor.description]
+    #     weekly_result = [dict(zip(weekly_column_names, row)) for row in weekly_meal_plans]
+    #
+    #     # Second query to get meal ids and related recipes
+    #     query2 = """
+    #         SELECT
+    #             dmp.date,
+    #             recipes_breakfast.name AS breakfast_recipe,
+    #             recipes_lunch.name AS lunch_recipe,
+    #             recipes_dinner.name AS dinner_recipe
+    #         FROM mealplan_db.meal_plans
+    #         JOIN mealplan_db.daily_meal_plans dmp ON dmp.meal_id = meal_plans.meal_id
+    #         LEFT JOIN recipes_database.recipes AS recipes_breakfast ON meal_plans.breakfast_recipe = recipes_breakfast.recipe_id
+    #         LEFT JOIN recipes_database.recipes AS recipes_lunch ON meal_plans.lunch_recipe = recipes_lunch.recipe_id
+    #         LEFT JOIN recipes_database.recipes AS recipes_dinner ON meal_plans.dinner_recipe = recipes_dinner.recipe_id
+    #         WHERE dmp.date = %s;
+    #     """
+    #
+    #     cursor.execute(query2, (date,))
+    #     meals = cursor.fetchall()
+    #
+    #     # Get column names for meals
+    #     meals_column_names = [column[0] for column in cursor.description]
+    #     meals_result = [dict(zip(meals_column_names, row)) for row in meals]
+    #
+    #     # Combine results into a single response object
+    #     combined_results = {
+    #         "weekly_meal_plan": weekly_result,
+    #         "meals": meals_result
+    #     }
+    #     # cursor.execute(query, (week_plan_id,))
+    #     # daily_mealplans = cursor.fetchall()
+    #
+    #     # Fetch column names for the result mapping
+    #     # column_names = [column[0] for column in cursor.description]
+    #     # daily_mealplans_result = [dict(zip(column_names, row)) for row in daily_mealplans]
+    #
+    #     cursor.close()
+    #     return combined_results
+
     def get_daily_meal_plans_by_date(self, date: str):
         """
-        Fetches daily meal plans based on the weekly plan ID.
+        Fetches daily meal plans based on the date.
         """
-        
-        cursor = self.data_service.connection.cursor()
-        query1 = """
-        SELECT wmp.*
-        FROM weekly_meal_plans wmp
-        JOIN daily_meal_plans dmp ON wmp.week_plan_id = dmp.week_plan_id
-        WHERE dmp.date = %s;
-        """
-        cursor.execute(query1, (date,))
-        weekly_meal_plans = cursor.fetchall()
+        connection = self._get_connection()  # Ensure the connection includes a default database
+        cursor = connection.cursor()
 
-        # Get column names for the weekly meal plans
-        weekly_column_names = [column[0] for column in cursor.description]
-        weekly_result = [dict(zip(weekly_column_names, row)) for row in weekly_meal_plans]
+        try:
+            # Query 1: Fetch weekly meal plan information
+            query1 = """
+            SELECT wmp.*
+            FROM mealplan_db.weekly_meal_plans wmp
+            JOIN mealplan_db.daily_meal_plans dmp ON wmp.week_plan_id = dmp.week_plan_id
+            WHERE dmp.date = %s;
+            """
+            cursor.execute(query1, (date,))
+            weekly_meal_plans = cursor.fetchall()
 
-        # Second query to get meal ids and related recipes
-        query2 = """
+            # Get column names and convert to dict
+            weekly_column_names = [column[0] for column in cursor.description]
+            weekly_results = [dict(zip(weekly_column_names, row)) for row in weekly_meal_plans]
+
+            # Query 2: Fetch meals with recipes
+            query2 = """
             SELECT 
                 dmp.date,
                 recipes_breakfast.name AS breakfast_recipe,
@@ -361,27 +420,26 @@ class MySQLRDBDataService(DataDataService):
             LEFT JOIN recipes_database.recipes AS recipes_lunch ON meal_plans.lunch_recipe = recipes_lunch.recipe_id
             LEFT JOIN recipes_database.recipes AS recipes_dinner ON meal_plans.dinner_recipe = recipes_dinner.recipe_id
             WHERE dmp.date = %s;
-        """
-        
-        cursor.execute(query2, (date,))
-        meals = cursor.fetchall()
+            """
+            cursor.execute(query2, (date,))
+            meals = cursor.fetchall()
 
-        # Get column names for meals
-        meals_column_names = [column[0] for column in cursor.description]
-        meals_result = [dict(zip(meals_column_names, row)) for row in meals]
+            # Get column names and convert to dict
+            meals_column_names = [column[0] for column in cursor.description]
+            meals_results = [dict(zip(meals_column_names, row)) for row in meals]
 
-        # Combine results into a single response object
-        combined_results = {
-            "weekly_meal_plan": weekly_result,
-            "meals": meals_result
-        }
-        # cursor.execute(query, (week_plan_id,))
-        # daily_mealplans = cursor.fetchall()
+            # Return as a tuple to match Angular app's expected format
+            combined_results = {
+                "weekly_meal_plan": weekly_meal_plans,
+                "meals": meals
+            }
+            return combined_results
 
-        # Fetch column names for the result mapping
-        # column_names = [column[0] for column in cursor.description]
-        # daily_mealplans_result = [dict(zip(column_names, row)) for row in daily_mealplans]
-
-        cursor.close()
-        return combined_results
+        except Exception as e:
+            connection.rollback()
+            print(f"Error in get_daily_meal_plans_by_date: {e}")
+            raise HTTPException(status_code=500, detail="Failed to fetch daily meal plans.")
+        finally:
+            cursor.close()
+            connection.close()
 
