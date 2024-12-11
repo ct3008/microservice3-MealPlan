@@ -105,7 +105,9 @@ class MealplanResource(BaseResource):
         # Remove links
         mealplan_data.pop('links', None)
         print(self.data_service.get_total_count(self.database, self.meal_plans))
-        mealplan_data['meal_id'] = self.data_service.get_total_count(self.database, self.meal_plans) + 2
+        # mealplan_data['meal_id'] = self.data_service.get_total_count(self.database, self.meal_plans) + 2
+        mealplan_data['meal_id'] = self.data_service.get_max_value("meal_id", self.database, self.meal_plans) + 1
+        print("DAY PLAN ID: ", mealplan_data['meal_id'])
         # Call insert_data with the meal plan data
         result = self.data_service.insert_data(self.database, self.meal_plans, mealplan_data)
         return Mealplan(**result)
@@ -115,7 +117,9 @@ class MealplanResource(BaseResource):
         weekly_mealplan_data = weekly_mealplan.dict(exclude_unset=True)
         # Remove any links 
         weekly_mealplan_data.pop('links', None)
-        weekly_mealplan_data['week_plan_id'] = self.data_service.get_total_count(self.database, self.weekly_meal_plans) + 1
+        # weekly_mealplan_data['week_plan_id'] = self.data_service.get_total_count(self.database, self.weekly_meal_plans) + 1
+        weekly_mealplan_data['week_plan_id'] = self.data_service.get_max_value("week_plan_id", self.database, self.weekly_meal_plans) + 1
+        print("WEEK PLAN ID: ", weekly_mealplan_data['week_plan_id'])
         # Call insert_data with the meal plan data
         result = self.data_service.insert_data(self.database, self.weekly_meal_plans, weekly_mealplan_data)
         return WeeklyMealplan(**result)
@@ -125,7 +129,9 @@ class MealplanResource(BaseResource):
         daily_mealplan_data = daily_mealplan.dict(exclude_unset=True)
         # Remove any links before insert
         daily_mealplan_data.pop('links', None)
-        daily_mealplan_data['day_plan_id'] = self.data_service.get_total_count(self.database, self.daily_meal_plans) + 1
+        daily_mealplan_data['day_plan_id'] = self.data_service.get_max_value("day_plan_id", self.database, self.daily_meal_plans) + 1
+        print("DAY PLAN ID: ", daily_mealplan_data['day_plan_id'])
+        # daily_mealplan_data['day_plan_id'] = self.data_service.get_total_count(self.database, self.daily_meal_plans) + 1
         # Call insert_data with the meal plan data
         result = self.data_service.insert_data(self.database, self.daily_meal_plans, daily_mealplan_data)
         return DailyMealplan(**result)

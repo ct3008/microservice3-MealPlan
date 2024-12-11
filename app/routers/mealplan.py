@@ -41,6 +41,21 @@ async def get_mealplan_by_id(meal_id: int) -> Mealplan:
 
     return result
 
+@router.get("/mealplans/{user_id}/{meal_id}", tags=["mealplans"], response_model=Mealplan)
+async def get_mealplan_with_user_id(user_id: int, meal_id: int) -> Mealplan:
+    """
+    Retrieve a meal plan by its ID.
+    """
+    print("USER ID MEALPLAN: ", user_id)
+    res = ServiceFactory.get_service("MealplanResource")
+    result = res.get_by_key(meal_id, "meal_plans")
+    print(result)
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Meal plan not found")
+
+    return result
+
 @router.put("/mealplans/{meal_id}", tags=["mealplans"], response_model=Mealplan)
 async def update_mealplan_by_id(meal_id: int, mealplan: Mealplan) -> Mealplan:
     """

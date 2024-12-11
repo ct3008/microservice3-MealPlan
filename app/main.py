@@ -3,6 +3,8 @@ import uvicorn
 import logging
 import time
 from fastapi.middleware.cors import CORSMiddleware
+from app.log_requests_middleware import LogRequestsMiddleware
+from app.correlation_id_middleware import CorrelationIdMiddleware
 import json
 
 from app.routers import mealplan
@@ -19,6 +21,10 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all HTTP methods (GET, POST, DELETE, etc.)
     allow_headers=["*"],  # Allows all headers
 )
+
+#add middleware
+app.add_middleware(LogRequestsMiddleware)
+app.add_middleware(CorrelationIdMiddleware)
 
 # Middleware to log requests before and after
 @app.middleware("http")

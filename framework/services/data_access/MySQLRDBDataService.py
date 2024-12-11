@@ -282,6 +282,40 @@ class MySQLRDBDataService(DataDataService):
                 print("Database connection closed.")
 
 
+    def get_max_value(self, parameter_name: str, database: str, collection: str) -> int:
+        """
+        Fetch the maximum value of a given parameter in the specified collection.
+
+        :param parameter_name: The name of the field/column to find the max value.
+        :param database: The name of the database.
+        :param collection: The name of the collection/table.
+        :return: The maximum value or 0 if the collection is empty.
+        """
+        connection = None
+        try:
+            # Establish database connection
+            connection = self._get_connection()
+            cursor = connection.cursor()
+
+            # SQL query to find the maximum value
+            query = f"SELECT MAX(`{parameter_name}`) FROM `{database}`.`{collection}`"
+            print("query: ", query)
+            cursor.execute(query)
+            max_value_row = cursor.fetchone()
+            # print("max val row: ", max_value_row)
+            
+            # Return the maximum value, defaulting to 0 if no rows exist
+            max_value = max_value_row[f'MAX(`{parameter_name}`)'] if max_value_row[f'MAX(`{parameter_name}`)'] is not None else 0
+            return max_value
+
+        except Exception as e:
+            print(f"Error while fetching max value for {parameter_name}: {e}")
+            raise HTTPException(status_code=500, detail=f"Failed to fetch max value for {parameter_name}.")
+        finally:
+            # Ensure the connection is closed
+            if connection:
+                connection.close()
+
     def insert_data(self, database_name: str, collection_name: str, data: dict):
         """
         Insert a new meal plan into the database.
@@ -298,6 +332,7 @@ class MySQLRDBDataService(DataDataService):
             # Prepare the fields and values for insertion
             fields = ', '.join([f"`{field}`" for field in data.keys()])
             placeholders = ', '.join(['%s'] * len(data))
+            print("DATA: ", data)
             insert_sql = f"INSERT INTO `{database_name}`.`{collection_name}` ({fields}) VALUES ({placeholders})"
             # Execute the insertion
             cursor.execute(insert_sql, list(data.values()))
@@ -333,7 +368,7 @@ class MySQLRDBDataService(DataDataService):
     #     """
     #     Fetches daily meal plans based on the weekly plan ID.
     #     """
-    #
+        
     #     cursor = self.data_service.connection.cursor()
     #     query1 = """
     #     SELECT wmp.*
@@ -343,14 +378,14 @@ class MySQLRDBDataService(DataDataService):
     #     """
     #     cursor.execute(query1, (date,))
     #     weekly_meal_plans = cursor.fetchall()
-    #
+
     #     # Get column names for the weekly meal plans
     #     weekly_column_names = [column[0] for column in cursor.description]
     #     weekly_result = [dict(zip(weekly_column_names, row)) for row in weekly_meal_plans]
-    #
+
     #     # Second query to get meal ids and related recipes
     #     query2 = """
-    #         SELECT
+    #         SELECT 
     #             dmp.date,
     #             recipes_breakfast.name AS breakfast_recipe,
     #             recipes_lunch.name AS lunch_recipe,
@@ -362,14 +397,14 @@ class MySQLRDBDataService(DataDataService):
     #         LEFT JOIN recipes_database.recipes AS recipes_dinner ON meal_plans.dinner_recipe = recipes_dinner.recipe_id
     #         WHERE dmp.date = %s;
     #     """
-    #
+        
     #     cursor.execute(query2, (date,))
     #     meals = cursor.fetchall()
-    #
+
     #     # Get column names for meals
     #     meals_column_names = [column[0] for column in cursor.description]
     #     meals_result = [dict(zip(meals_column_names, row)) for row in meals]
-    #
+
     #     # Combine results into a single response object
     #     combined_results = {
     #         "weekly_meal_plan": weekly_result,
@@ -377,11 +412,11 @@ class MySQLRDBDataService(DataDataService):
     #     }
     #     # cursor.execute(query, (week_plan_id,))
     #     # daily_mealplans = cursor.fetchall()
-    #
+
     #     # Fetch column names for the result mapping
     #     # column_names = [column[0] for column in cursor.description]
     #     # daily_mealplans_result = [dict(zip(column_names, row)) for row in daily_mealplans]
-    #
+
     #     cursor.close()
     #     return combined_results
 
@@ -409,11 +444,15 @@ class MySQLRDBDataService(DataDataService):
 
             # Query 2: Fetch meals with recipes
             query2 = """
-            SELECT 
+            SELECT
                 dmp.date,
+                dmp.meal_id,
                 recipes_breakfast.name AS breakfast_recipe,
                 recipes_lunch.name AS lunch_recipe,
-                recipes_dinner.name AS dinner_recipe
+                recipes_dinner.name AS dinner_recipe,
+                recipes_breakfast.recipe_id as breakfast_id,
+                recipes_lunch.recipe_id as lunch_id,
+                recipes_dinner.recipe_id as dinner_id
             FROM mealplan_db.meal_plans
             JOIN mealplan_db.daily_meal_plans dmp ON dmp.meal_id = meal_plans.meal_id
             LEFT JOIN recipes_database.recipes AS recipes_breakfast ON meal_plans.breakfast_recipe = recipes_breakfast.recipe_id
@@ -428,12 +467,14 @@ class MySQLRDBDataService(DataDataService):
             meals_column_names = [column[0] for column in cursor.description]
             meals_results = [dict(zip(meals_column_names, row)) for row in meals]
 
-            # Return as a tuple to match Angular app's expected format
             combined_results = {
                 "weekly_meal_plan": weekly_meal_plans,
                 "meals": meals
             }
             return combined_results
+
+            # Return as a tuple to match Angular app's expected format
+            # return [weekly_results, meals_results]
 
         except Exception as e:
             connection.rollback()
