@@ -467,9 +467,19 @@ class MySQLRDBDataService(DataDataService):
             meals_column_names = [column[0] for column in cursor.description]
             meals_results = [dict(zip(meals_column_names, row)) for row in meals]
 
+            query3 = """
+            SELECT day_plan_id 
+            FROM mealplan_db.daily_meal_plans
+            WHERE date = %s;
+            """
+            cursor.execute(query3, (date,))
+            all_mealplandb_data = cursor.fetchall()
+            print("Mealplan mealplan: ", all_mealplandb_data)
+
             combined_results = {
                 "weekly_meal_plan": weekly_meal_plans,
-                "meals": meals
+                "meals": meals,
+                "daily_mealplan": all_mealplandb_data
             }
             return combined_results
 
