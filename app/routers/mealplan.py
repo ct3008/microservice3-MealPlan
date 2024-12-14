@@ -5,6 +5,10 @@ from typing import List
 from app.models.mealplan_model import Mealplan, DailyMealplan, WeeklyMealplan, PaginatedResponse
 from app.resources.mealplan_resource import MealplanResource
 from app.services.service_factory import ServiceFactory
+import asyncio
+import time
+import httpx
+import requests
 
 router = APIRouter()
 
@@ -41,20 +45,20 @@ async def get_mealplan_by_id(meal_id: int) -> Mealplan:
 
     return result
 
-@router.get("/mealplans/{user_id}/{meal_id}", tags=["mealplans"], response_model=Mealplan)
-async def get_mealplan_with_user_id(user_id: int, meal_id: int) -> Mealplan:
-    """
-    Retrieve a meal plan by its ID.
-    """
-    print("USER ID MEALPLAN: ", user_id)
-    res = ServiceFactory.get_service("MealplanResource")
-    result = res.get_by_key(meal_id, "meal_plans")
-    print(result)
+# @router.get("/mealplans/{user_id}/{meal_id}", tags=["mealplans"], response_model=Mealplan)
+# async def get_mealplan_with_user_id(user_id: int, meal_id: int) -> Mealplan:
+#     """
+#     Retrieve a meal plan by its ID.
+#     """
+#     print("USER ID MEALPLAN: ", user_id)
+#     res = ServiceFactory.get_service("MealplanResource")
+#     result = res.get_by_key(meal_id, "meal_plans")
+#     print(result)
 
-    if not result:
-        raise HTTPException(status_code=404, detail="Meal plan not found")
+#     if not result:
+#         raise HTTPException(status_code=404, detail="Meal plan not found")
 
-    return result
+#     return result
 
 @router.put("/mealplans/{meal_id}", tags=["mealplans"], response_model=Mealplan)
 async def update_mealplan_by_id(meal_id: int, mealplan: Mealplan) -> Mealplan:
@@ -69,6 +73,89 @@ async def update_mealplan_by_id(meal_id: int, mealplan: Mealplan) -> Mealplan:
         raise HTTPException(status_code=404, detail="Meal plan not found")
 
     return updated_mealplan
+
+# @router.get("/mealplans/async/{meal_id}", tags=["mealplans"])
+async def get_mealplans_async():
+    """
+    Asynchronously fetch multiple meal plans.
+    """
+    # Get the service instance
+    res = ServiceFactory.get_service("MealplanResource")
+
+    async def fetch_mealplan(meal_id):
+        try:
+            # Ensure the coroutine is awaited
+            return await res.get_by_key_async(meal_id, "meal_plans")
+        except Exception as e:
+            return {"meal_id": meal_id, "error": str(e)}
+
+    # List of meal IDs to fetch
+    meal_ids = [1, 2, 3, 7, 8]
+
+    # Use asyncio.gather to fetch meal plans concurrently
+    mealplans = await asyncio.gather(*(fetch_mealplan(meal_id) for meal_id in meal_ids))
+
+    # Return resolved, JSON-serializable data
+    return {"mealplans": mealplans}
+
+# @router.get("/mealplans/sync/{meal_id}", tags=["mealplans"])
+def get_mealplans_sync():
+    """
+    Synchronously fetch multiple meal plans.
+    """
+    res = ServiceFactory.get_service("MealplanResource")
+
+    def fetch_mealplan(meal_id):
+        try:
+            return res.get_by_key(meal_id, "meal_plans")
+        except Exception as e:
+            return {"meal_id": meal_id, "error": str(e)}
+
+    # List of meal IDs to fetch
+    meal_ids = [1, 2, 3, 7,8]
+
+    # Fetch meal plans one by one
+    mealplans = [fetch_mealplan(meal_id) for meal_id in meal_ids]
+
+    return {"mealplans": mealplans}
+
+@router.get("/mealplans/test/{meal_id}", tags=["mealplans"])
+async def test_mealplans_performance(meal_id: int):
+    """
+    Test and compare the performance of async and sync mealplan functions.
+    """
+    def call_async_mealplans():
+        print("start async")
+        start_time = time.time()
+        # async with httpx.AsyncClient() as client:
+        #     response = await client.get("http://localhost:5002/mealplans/async/1")
+        response = get_mealplans_async()
+        print("response: ", response)
+        async_duration = time.time() - start_time
+        return response, async_duration
+
+    def call_sync_mealplans():
+        start_time = time.time()
+        # response = requests.get("http://localhost:5002/mealplans/sync/1")
+        response = get_mealplans_sync()
+        sync_duration = time.time() - start_time
+        return response, sync_duration
+
+    # Call async function
+    async_response, async_time = call_async_mealplans()
+    print("async done")
+
+    # Call sync function
+    sync_response, sync_time = call_sync_mealplans()
+
+    return {
+        "async_response": async_response,
+        "async_time_taken": async_time,
+        "sync_response": sync_response,
+        "sync_time_taken": sync_time,
+    }
+
+# END OF MEALPLANS
 
 @router.put("/weekly-mealplans/{week_plan_id}", tags=["weekly-mealplans"], response_model=WeeklyMealplan)
 async def update_weekly_mealplan_by_id(week_plan_id: int, weekly_mealplan: WeeklyMealplan) -> WeeklyMealplan:

@@ -82,6 +82,28 @@ class MealplanResource(BaseResource):
                 self.database, self.daily_meal_plans, key_field=self.daily_pk, key_value=key
             )
             return DailyMealplan(**result)
+        
+    async def get_by_key_async(self, key: Any, collection: str):
+        d_service = self.data_service
+        try:
+            key = int(key)
+        except:
+            key = str(key) #RETURN AN ERROR CODE FOR INCORRECT KEY TYPE
+        if collection == "meal_plans":
+            result = d_service.get_data_object(
+                self.database, self.meal_plans, key_field=self.meal_plans_pk, key_value=key
+            )
+            return Mealplan(**result)
+        elif collection == "weekly_meal_plans":
+            result = d_service.get_data_object(
+                self.database, self.weekly_meal_plans, key_field=self.weekly_pk, key_value=key
+            )
+            return WeeklyMealplan(**result)
+        elif collection == "daily_meal_plans":
+            result = d_service.get_data_object(
+                self.database, self.daily_meal_plans, key_field=self.daily_pk, key_value=key
+            )
+            return DailyMealplan(**result)
 
     def update_by_key(self, key: str, data: dict) -> Mealplan:
         d_service = self.data_service
