@@ -494,3 +494,21 @@ class MySQLRDBDataService(DataDataService):
             cursor.close()
             connection.close()
 
+    def execute_query(self, query: str, params: Optional[tuple] = None) -> List[dict]:
+        """
+        Execute a raw SQL query and return the results.
+        """
+        connection = None
+        try:
+            connection = self._get_connection()
+            cursor = connection.cursor()
+            print(f"Executing query: {query} with params: {params}")  # Debugging
+            cursor.execute(query, params or ())
+            result = cursor.fetchall()
+            return result
+        except Exception as e:
+            print(f"Error executing query: {e}")  # Debugging
+            raise HTTPException(status_code=500, detail="Failed to execute query.")
+        finally:
+            if connection:
+                connection.close()

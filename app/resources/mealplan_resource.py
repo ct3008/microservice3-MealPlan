@@ -5,6 +5,7 @@ from datetime import datetime
 from datetime import date
 from typing import List, Dict, Any
 from pydantic import BaseModel
+from fastapi import HTTPException
 
 from app.models.mealplan_model import Mealplan, DailyMealplan, WeeklyMealplan
 from app.services.service_factory import ServiceFactory
@@ -145,18 +146,77 @@ class MealplanResource(BaseResource):
         # Call insert_data with the meal plan data
         result = self.data_service.insert_data(self.database, self.weekly_meal_plans, weekly_mealplan_data)
         return WeeklyMealplan(**result)
-    
-    # Create a new daily meal plan entry
+
     def create_daily_meal_plan(self, daily_mealplan: DailyMealplan) -> DailyMealplan:
         daily_mealplan_data = daily_mealplan.dict(exclude_unset=True)
-        # Remove any links before insert
         daily_mealplan_data.pop('links', None)
-        daily_mealplan_data['day_plan_id'] = self.data_service.get_max_value("day_plan_id", self.database, self.daily_meal_plans) + 1
-        print("DAY PLAN ID: ", daily_mealplan_data['day_plan_id'])
-        # daily_mealplan_data['day_plan_id'] = self.data_service.get_total_count(self.database, self.daily_meal_plans) + 1
-        # Call insert_data with the meal plan data
-        result = self.data_service.insert_data(self.database, self.daily_meal_plans, daily_mealplan_data)
-        return DailyMealplan(**result)
+
+        # Extract the date
+        date = daily_mealplan_data['date']
+
+        try:
+            # Check if a weekly plan exists for the date
+            query = """
+            SELECT week_plan_id FROM mealplan_db.weekly_meal_plans
+            WHERE %s BETWEEN start_date AND end_date
+            """
+            params = (date,)
+            print(f"Checking for existing weekly plan with query: {query}, params: {params}")  # Debugging
+            existing_week_plan = self.data_service.execute_query(query, params)
+
+            if existing_week_plan:
+                # Use the existing week_plan_id
+                daily_mealplan_data['week_plan_id'] = existing_week_plan[0]['week_plan_id']
+            else:
+                # Create a new weekly plan
+                new_week_plan_id = self.data_service.get_max_value(
+                    "week_plan_id", self.database, "weekly_meal_plans"
+                ) + 1
+
+                # Calculate the start_date and end_date for the new weekly plan
+                start_date = date  # Assuming the week starts on the provided date
+                end_date_query = """
+                SELECT DATE_ADD(%s, INTERVAL 6 DAY) AS end_date
+                """
+                end_date_result = self.data_service.execute_query(end_date_query, (start_date,))
+                end_date = end_date_result[0]['end_date']
+
+                # Insert the new weekly plan
+                insert_query = """
+                INSERT INTO mealplan_db.weekly_meal_plans (week_plan_id, start_date, end_date)
+                VALUES (%s, %s, %s)
+                """
+                print(
+                    f"Creating new weekly plan with query: {insert_query}, params: ({new_week_plan_id}, {start_date}, {end_date})")  # Debugging
+                self.data_service.execute_query(insert_query, (new_week_plan_id, start_date, end_date))
+
+                # Use the newly created week_plan_id
+                daily_mealplan_data['week_plan_id'] = new_week_plan_id
+
+            # Generate a new day_plan_id
+            daily_mealplan_data['day_plan_id'] = self.data_service.get_max_value(
+                "day_plan_id", self.database, "daily_meal_plans"
+            ) + 1
+
+            # Insert the daily meal plan
+            result = self.data_service.insert_data(
+                self.database, "daily_meal_plans", daily_mealplan_data
+            )
+            return DailyMealplan(**result)
+        except Exception as e:
+            print(f"Error in create_daily_meal_plan: {e}")  # Debugging
+            raise HTTPException(status_code=500, detail="Failed to create daily meal plan.")
+
+    def _get_year_and_week(self, date: str) -> tuple:
+        """
+        Helper function to extract the year and week number from a date.
+
+        :param date: The date string in YYYY-MM-DD format.
+        :return: A tuple containing the year and week number.
+        """
+        from datetime import datetime
+        date_obj = datetime.strptime(date, "%Y-%m-%d")
+        return date_obj.isocalendar()[0], date_obj.isocalendar()[1]
 
     # Retrieve a specific weekly meal plan by its week_plan_id
     def get_weekly_meal_plan(self, week_plan_id: Any) -> WeeklyMealplan:
