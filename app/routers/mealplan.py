@@ -149,9 +149,7 @@ async def test_mealplans_performance(meal_id: int):
     sync_response, sync_time = call_sync_mealplans()
 
     return {
-        "async_response": async_response,
         "async_time_taken": async_time,
-        "sync_response": sync_response,
         "sync_time_taken": sync_time,
     }
 
