@@ -10,19 +10,17 @@ import os
 
 from app.routers import mealplan
 
-
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-where_am_i = os.environ.get("WHEREAMI", None)
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # You can specify the origin here, e.g., ["http://localhost:4200"]
+    allow_origins=["*"], # You can specify the origin here, e.g., ["http://localhost:4200"]
     allow_credentials=True,
-    allow_methods=["*"],  # Allows all HTTP methods (GET, POST, DELETE, etc.)
-    allow_headers=["*"],  # Allows all headers
+    allow_methods=["*"], # Allows all HTTP methods (GET, POST, DELETE, etc.)
+    allow_headers=["*"], # Allows all headers
 )
 
 #add middleware
@@ -36,7 +34,6 @@ async def log_requests(request: Request, call_next):
 
     # Log before the request is processed
     start_time = time.time()
-
     # Call the next process in the pipeline
     response = await call_next(request)
 
@@ -48,7 +45,7 @@ async def log_requests(request: Request, call_next):
 
 
 app.include_router(mealplan.router)
-
+where_am_i = os.environ.get("WHEREAMI", None)
 
 @app.get("/")
 def hello_world():
@@ -65,6 +62,3 @@ with open("openapi.json", "w") as f:
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=5002)
-
-
-
