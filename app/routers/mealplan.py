@@ -1,6 +1,7 @@
 # mealplan_router.py
-from fastapi import APIRouter, HTTPException, Query, Request
-from typing import List
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
+from typing import List, Dict
 
 from app.models.mealplan_model import Mealplan, DailyMealplan, WeeklyMealplan, PaginatedResponse
 from app.resources.mealplan_resource import MealplanResource
@@ -74,78 +75,97 @@ async def update_mealplan_by_id(meal_id: int, mealplan: Mealplan) -> Mealplan:
 
     return updated_mealplan
 
+
+tasks_status: Dict[str, dict] = {}
+
+async def get_mealplan_async(background_tasks: BackgroundTasks, task_id: str, meal_id: int):
+    async def fetch_mealplan(meal_id: int):
+        await asyncio.sleep(30)  # Simulating a delay
+        return {"meal_id": meal_id, "status": "fetched"}
+    mealplan = await fetch_mealplan(meal_id)
+    tasks_status[task_id] = {"status": "completed", "mealplan": mealplan}
+
+async def start_task(background_tasks: BackgroundTasks, task_id: str, meal_id: int):
+    tasks_status[task_id] = {"status": "in-progress"}
+    background_tasks.add_task(get_mealplan_async, background_tasks, task_id, meal_id)
+
+@router.post("/mealplans/start-task")
+async def start_mealplans_task(background_tasks: BackgroundTasks, meal_id: int):
+    task_id = str(time.time())
+    await start_task(background_tasks, task_id, meal_id)
+    # return {"message": "Meal plan fetching initiated", "task_id": task_id, "status": 202}
+    return JSONResponse(
+        status_code=202,  # Set the status code to 202
+        content={"message": "Meal plan fetching initiated", "task_id": task_id, "status": 202}
+    )
+
+@router.get("/mealplans/poll/{task_id}")
+async def poll_task_status(task_id: str):
+    task = tasks_status.get(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+    if task["status"] == "in-progress":
+        return {"task_id": task_id, "status": "in-progress", "message": "Task is still running."}
+    if task["status"] == "completed":
+        return {"task_id": task_id, "status": "completed", "mealplan": task["mealplan"]}
+    raise HTTPException(status_code=500, detail="Unknown task status")
+
+@router.put("/mealplans/{meal_id}", tags=["mealplans"], response_model=Mealplan)
+async def update_mealplan_by_id(meal_id: int, mealplan: Mealplan) -> Mealplan:
+    """
+    Update a meal plan by its ID.
+    """
+    res = ServiceFactory.get_service("MealplanResource")
+    update_data = mealplan.dict(exclude_unset=True)
+    updated_mealplan = res.update_meal_plan(meal_id, update_data)
+
+    if not updated_mealplan:
+        raise HTTPException(status_code=404, detail="Meal plan not found")
+
+    return updated_mealplan
+
 # @router.get("/mealplans/async/{meal_id}", tags=["mealplans"])
 async def get_mealplans_async():
-    """
-    Asynchronously fetch multiple meal plans.
-    """
-    # Get the service instance
     res = ServiceFactory.get_service("MealplanResource")
 
     async def fetch_mealplan(meal_id):
         try:
-            # Ensure the coroutine is awaited
             return await res.get_by_key_async(meal_id, "meal_plans")
         except Exception as e:
             return {"meal_id": meal_id, "error": str(e)}
 
-    # List of meal IDs to fetch
     meal_ids = [1, 2, 3, 7, 8]
-
-    # Use asyncio.gather to fetch meal plans concurrently
     mealplans = await asyncio.gather(*(fetch_mealplan(meal_id) for meal_id in meal_ids))
-
-    # Return resolved, JSON-serializable data
     return {"mealplans": mealplans}
 
 # @router.get("/mealplans/sync/{meal_id}", tags=["mealplans"])
 def get_mealplans_sync():
-    """
-    Synchronously fetch multiple meal plans.
-    """
     res = ServiceFactory.get_service("MealplanResource")
-
     def fetch_mealplan(meal_id):
         try:
             return res.get_by_key(meal_id, "meal_plans")
         except Exception as e:
             return {"meal_id": meal_id, "error": str(e)}
 
-    # List of meal IDs to fetch
     meal_ids = [1, 2, 3, 7,8]
-
-    # Fetch meal plans one by one
     mealplans = [fetch_mealplan(meal_id) for meal_id in meal_ids]
-
     return {"mealplans": mealplans}
 
 @router.get("/mealplans/test/{meal_id}", tags=["mealplans"])
 async def test_mealplans_performance(meal_id: int):
-    """
-    Test and compare the performance of async and sync mealplan functions.
-    """
     def call_async_mealplans():
-        print("start async")
         start_time = time.time()
-        # async with httpx.AsyncClient() as client:
-        #     response = await client.get("http://localhost:5002/mealplans/async/1")
         response = get_mealplans_async()
-        print("response: ", response)
         async_duration = time.time() - start_time
         return response, async_duration
 
     def call_sync_mealplans():
         start_time = time.time()
-        # response = requests.get("http://localhost:5002/mealplans/sync/1")
         response = get_mealplans_sync()
         sync_duration = time.time() - start_time
         return response, sync_duration
 
-    # Call async function
     async_response, async_time = call_async_mealplans()
-    print("async done")
-
-    # Call sync function
     sync_response, sync_time = call_sync_mealplans()
 
     return {

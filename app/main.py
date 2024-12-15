@@ -6,11 +6,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.log_requests_middleware import LogRequestsMiddleware
 from app.correlation_id_middleware import CorrelationIdMiddleware
 import json
+import os
 
 from app.routers import mealplan
 
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+where_am_i = os.environ.get("WHEREAMI", None)
 
 app = FastAPI()
 
@@ -48,8 +51,13 @@ app.include_router(mealplan.router)
 
 
 @app.get("/")
-async def root():
-    return {"message": "Hello mealplan Applications!"}
+def hello_world():
+    global where_am_i
+
+    if where_am_i is None:
+        where_am_i = "NOT IN DOCKER"
+
+    return f'Hello, from {where_am_i}! I changed.'
 
 with open("openapi.json", "w") as f:
     json.dump(app.openapi(), f)
